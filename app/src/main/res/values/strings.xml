@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">YT Download</string>
+    <string name="wrong_intent">Wrong URL</string>
+</resources>
