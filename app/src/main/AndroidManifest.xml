@@ -2,6 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.github.brokko.youtubedownload">
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -27,5 +28,7 @@
             </intent-filter>
         </activity>
 
+        <service android:name=".BackgroundService"
+            android:exported="false"/>
     </application>
 </manifest>

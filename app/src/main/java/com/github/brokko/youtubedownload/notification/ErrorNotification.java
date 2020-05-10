@@ -5,7 +5,6 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Color;
 
 import androidx.annotation.NonNull;
@@ -20,8 +19,6 @@ public class ErrorNotification extends NotificationCompat.Builder {
     public static final String ACTION_CLOSE = "ACTION_CLOSE";
     public static final String ACTION_TOUCH = "ACTION_TOUCH";
 
-    private final IntentFilter intentFilter = new IntentFilter();
-
     private final NotificationManagerCompat notiManagerCompat;
 
     private final PendingIntent pendingIntentClose;
@@ -29,18 +26,16 @@ public class ErrorNotification extends NotificationCompat.Builder {
 
     public ErrorNotification(@NonNull Context context) {
         super(context, DownloadActivity.CHANNEL_ID);
-        notiManagerCompat = NotificationManagerCompat.from(context);
 
+        notiManagerCompat = NotificationManagerCompat.from(context);
         pendingIntentClose = PendingIntent.getBroadcast(context, 1, new Intent(ACTION_CLOSE), 0);
         pendingIntentTouch = PendingIntent.getBroadcast(context, 1, new Intent(ACTION_TOUCH), 0);
-
-        intentFilter.addAction(ErrorNotification.ACTION_TOUCH);
 
         this.setSmallIcon(R.drawable.ic_launcher_foreground);
         this.setDeleteIntent(pendingIntentClose);
         this.setAutoCancel(true);
-        this.setSubText("Downloader");
-        this.setContentText("Download fehler! Wiederholen?");
+        this.setSubText("Download");
+        this.setContentText("Download Fehler! Wiederholen?");
         this.setContentIntent(pendingIntentTouch);
         this.setColor(Color.BLACK);
         this.setPriority(NotificationManager.IMPORTANCE_DEFAULT);
@@ -55,10 +50,5 @@ public class ErrorNotification extends NotificationCompat.Builder {
 
     public void destroy() {
         notiManagerCompat.cancel(1);
-    }
-
-    @NonNull
-    public IntentFilter getIntentFilter() {
-        return intentFilter;
     }
 }

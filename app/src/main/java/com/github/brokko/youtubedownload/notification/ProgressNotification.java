@@ -17,6 +17,7 @@ public class ProgressNotification extends NotificationCompat.Builder {
 
     public ProgressNotification(@NonNull Context context) {
         super(context, DownloadActivity.CHANNEL_ID);
+
         notiManagerCompat = NotificationManagerCompat.from(context);
 
         this.setSmallIcon(R.drawable.ic_launcher_foreground);
@@ -41,6 +42,12 @@ public class ProgressNotification extends NotificationCompat.Builder {
         this.setContentTitle("In queue: "+inQueue);
         this.setProgress(3, current, indeterminate);
         this.setContentText(task);
+
+        send();
+    }
+
+    public void updateQueue(int inQueue) {
+        this.setContentTitle("In queue: "+inQueue);
 
         send();
     }
