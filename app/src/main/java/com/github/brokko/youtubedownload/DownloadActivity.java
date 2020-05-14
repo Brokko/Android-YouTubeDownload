@@ -21,13 +21,12 @@ public class DownloadActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        finish();
 
         // https://developer.android.com/training/notify-user/build-notification#Priority
         // Create the NotificationChannel, but only on API 26+ because
         // the NotificationChannel class is new and not in the support library
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, getString(R.string.app_name), NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, getString(R.string.app_name), NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription("Progress");
             channel.setSound(null, null);
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
@@ -42,7 +41,6 @@ public class DownloadActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (checkCallingOrSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
             deliverToService();
     }
 
@@ -61,5 +59,7 @@ public class DownloadActivity extends Activity {
         } else {
             Toast.makeText(this, R.string.wrong_intent, Toast.LENGTH_LONG).show();
         }
+
+        finish();
     }
 }

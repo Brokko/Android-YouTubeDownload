@@ -34,14 +34,14 @@ import java.util.List;
  */
 public class MetaDataInsert extends Thread implements Runnable {
 
-    private final MetaCallBack callBack;
+    private final Callback callback;
     private final File videoFile;
     private final String title;
     private final String artist;
     private final String imgURL;
 
-    MetaDataInsert(MetaCallBack callBack, File videoFile, String title, String artist, String imgURL) {
-        this.callBack = callBack;
+    public MetaDataInsert(Callback callback, File videoFile, String title, String artist, String imgURL) {
+        this.callback = callback;
         this.videoFile = videoFile;
         this.title = title;
         this.artist = artist;
@@ -162,12 +162,11 @@ public class MetaDataInsert extends Thread implements Runnable {
             fc.position(offset);
             fc.write(ByteBuffer.wrap(baos.getBuffer(), 0, baos.size()));
             fc.close();
-
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            callBack.finished(videoFile);
         }
+
+        callback.finish();
     }
 
     private FileChannel splitFileAndInsert(File f, long pos, long length) throws IOException {
@@ -184,7 +183,8 @@ public class MetaDataInsert extends Thread implements Runnable {
         tmpWrite.position(0);
 
         long transferred = 0;
-        while ((transferred += tmpWrite.transferTo(0, tmpWrite.size() - transferred, write)) != tmpWrite.size());
+        while ((transferred += tmpWrite.transferTo(0, tmpWrite.size() - transferred, write)) != tmpWrite.size())
+            ;
 
         tmpWrite.close();
         tmp.delete();
@@ -247,7 +247,7 @@ public class MetaDataInsert extends Thread implements Runnable {
         }
     }
 
-    public interface MetaCallBack {
-        void finished(File file);
+    public interface Callback {
+        public void finish();
     }
 }

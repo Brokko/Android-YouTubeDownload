@@ -15,7 +15,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
         android:label="@string/app_name" >
-      <!--  android:requestLegacyExternalStorage="true" -->
 
         <activity android:name="com.github.brokko.youtubedownload.DownloadActivity">
             <intent-filter>

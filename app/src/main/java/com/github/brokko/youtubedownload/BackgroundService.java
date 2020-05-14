@@ -13,7 +13,9 @@ import android.os.Environment;
 import android.os.IBinder;
 import android.util.SparseArray;
 
-import com.github.brokko.youtubedownload.notification.ErrorNotification;
+import androidx.core.app.NotificationManagerCompat;
+
+import com.github.brokko.youtubedownload.notification.ForegroundNotification;
 import com.github.brokko.youtubedownload.notification.ProgressNotification;
 
 import java.io.File;
@@ -29,52 +31,50 @@ public class BackgroundService extends Service {
     private final IntentFilter intentFilter = new IntentFilter();
 
     private DownloadManager manager;
-    private ProgressNotification progressNotification;
-    private ErrorNotification errorNotification;
+    private ProgressNotification progressNoti;
 
     private String title;
     private String artist;
     private String imgURL;
     private long currentDownload;
 
-    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+    private BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             switch(intent.getAction()) {
                 case DownloadManager.ACTION_DOWNLOAD_COMPLETE:
-                    progressNotification.setProgress(3, "Write metadata...", downloadQueue.size(), false);
+                    progressNoti.updateProgress(3, "Write metadata...", downloadQueue.size(), false);
 
                     DownloadManager.Query query = new DownloadManager.Query();
-                    //    query.setFilterById(intent.getExtras().getLong(DownloadManager.EXTRA_DOWNLOAD_ID));
                     query.setFilterById(currentDownload);
                     Cursor c = manager.query(query);
 
                     if (c.moveToFirst()) {
                         if (c.getInt(c.getColumnIndex(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL) {
-                            new MetaDataInsert((File file) -> {
+
+                            File file = new File(Uri.parse(c.getString(c.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))).getPath());
+                            c.close();
+
+                            new MetaDataInsert(() -> {
                                 sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)));
                                 downloadQueue.remove(0);
 
-                                if (downloadQueue.size() != 0) { download(); } else { onDestroy(); }
-                            },  new File(Uri.parse(c.getString(c.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))).getPath()), title, artist, imgURL).start();
-                            c.close();
+                                if (downloadQueue.size() != 0) { download(); } else { stopSelf(); }
+                            }, file, title, artist, imgURL).start();
 
                         } else {
-                            errorNotification.send();
-                            progressNotification.destroy();
+                            progressNoti.error();
                         }
                     } else {
-                        errorNotification.send();
-                        progressNotification.destroy();
+                        progressNoti.error();
                     }
 
                     break;
-                case ErrorNotification.ACTION_CLOSE:
-                    onDestroy();
+                case ProgressNotification.ACTION_CLOSE:
+                    stopSelf();
                     break;
-                case ErrorNotification.ACTION_TOUCH:
+                case ProgressNotification.ACTION_TOUCH:
                     download();
-                    errorNotification.destroy();
                     break;
             }
         }
@@ -83,18 +83,20 @@ public class BackgroundService extends Service {
     @Override
     public void onCreate() {
         manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-        progressNotification = new ProgressNotification(this);
-        errorNotification = new ErrorNotification(this);
+        progressNoti = new ProgressNotification(this);
 
-        intentFilter.addAction(ErrorNotification.ACTION_TOUCH);
-        intentFilter.addAction(ErrorNotification.ACTION_CLOSE);
+        intentFilter.addAction(ProgressNotification.ACTION_TOUCH);
+        intentFilter.addAction(ProgressNotification.ACTION_CLOSE);
         intentFilter.addAction(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+
+        startForeground(1, new ForegroundNotification(this).build());
+        registerReceiver(receiver, intentFilter);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         downloadQueue.add(intent.getStringExtra("URL"));
-        progressNotification.updateQueue(downloadQueue.size());
+        progressNoti.updateQueue(downloadQueue.size());
 
         if (downloadQueue.size() == 1)
             download();
@@ -111,33 +113,28 @@ public class BackgroundService extends Service {
     public void onDestroy() {
         super.onDestroy();
 
-        manager.remove(currentDownload);
         downloadQueue.clear();
-        progressNotification.destroy();
-        errorNotification.destroy();
 
         unregisterReceiver(receiver);
+        stopForeground(true);
+        NotificationManagerCompat.from(this).cancel(2);
     }
 
     @SuppressLint("StaticFieldLeak")
     private void download() {
-        progressNotification.setProgress(0, "Fetch stream", downloadQueue.size(), false);
+        progressNoti.updateProgress(0, "Fetch stream", downloadQueue.size(), false);
 
         new YouTubeExtractor(this) {
             @Override
             protected void onExtractionComplete(SparseArray<YtFile> ytFiles, VideoMeta vMeta) {
-                progressNotification.setProgress(1, "Prepare download", downloadQueue.size(), false);
-
-                registerReceiver(receiver, intentFilter);
+                progressNoti.updateProgress(1, "Prepare download", downloadQueue.size(), false);
 
                 if (ytFiles == null) {
-                    errorNotification.send();
-                    progressNotification.destroy();
+                    progressNoti.error();
                     return;
                 }
 
                 YtFile ytFile = null;
-                String videoTitle = vMeta.getTitle();
                 if (ytFiles.get(258) != null) {
                     ytFile = ytFiles.get(258);
                 } else if (ytFiles.get(141) != null) {
@@ -148,24 +145,39 @@ public class BackgroundService extends Service {
                     ytFile = ytFiles.get(140);
                 }
 
-                String[] titart = vMeta.getTitle().split("-");
+                String videoTitle = vMeta.getTitle().replaceAll("\"", "");
+                videoTitle = videoTitle.replace("(Lyrics)", "");
+                videoTitle = videoTitle.replace("[Official Video]", "");
+                videoTitle = videoTitle.replace("(Official Video)", "");
+                videoTitle = videoTitle.replace("[Official Music Video]", "");
+                videoTitle = videoTitle.replace("(Official Music Video)", "");
+                videoTitle = videoTitle.replace("(Official Video HD)", "");
+                videoTitle = videoTitle.replace("(OFFICIAL MUSIC VIDEO)", "");
                 imgURL = vMeta.getThumbUrl();
-                if (titart.length == 2) {
-                    title = titart[1];
-                    artist = titart[0];
+
+                if(videoTitle.contains("–")) {
+                    String[] splitTitle = videoTitle.split("–");
+                    title = splitTitle[1];
+                    artist = splitTitle[0];
+
+                } else if(videoTitle.contains("-")) {
+                    String[] splitTitle = videoTitle.split("-");
+                    title = splitTitle[1];
+                    artist = splitTitle[0];
+
                 } else {
-                    title = vMeta.getTitle();
-                    artist = "null";
+                    title = videoTitle;
+                    artist = null;
                 }
 
                 DownloadManager.Request request = new DownloadManager.Request(Uri.parse(ytFile.getUrl()));
                 request.setTitle(videoTitle);
                 request.allowScanningByMediaScanner();
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION);
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, videoTitle + ".m4a");
                 currentDownload = manager.enqueue(request);
 
-                progressNotification.setProgress(2, "Download file", downloadQueue.size(), true);
+                progressNoti.updateProgress(2, "Download file", downloadQueue.size(), true);
             }
         }.extract(downloadQueue.get(0), false, false);
     }

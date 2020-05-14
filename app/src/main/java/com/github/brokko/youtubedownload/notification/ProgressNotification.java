@@ -1,8 +1,9 @@
 package com.github.brokko.youtubedownload.notification;
 
-import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -13,42 +14,48 @@ import com.github.brokko.youtubedownload.R;
 
 public class ProgressNotification extends NotificationCompat.Builder {
 
+    public static final String ACTION_CLOSE = "ACTION_CLOSE";
+    public static final String ACTION_TOUCH = "ACTION_TOUCH";
+
     private final NotificationManagerCompat notiManagerCompat;
+    private final PendingIntent pendingIntentClose;
+    private final PendingIntent pendingIntentTouch;
 
     public ProgressNotification(@NonNull Context context) {
         super(context, DownloadActivity.CHANNEL_ID);
 
         notiManagerCompat = NotificationManagerCompat.from(context);
+        pendingIntentClose = PendingIntent.getBroadcast(context, 1, new Intent(ACTION_CLOSE), 0);
+        pendingIntentTouch = PendingIntent.getBroadcast(context, 1, new Intent(ACTION_TOUCH), 0);
 
+        this.setAutoCancel(false);
         this.setSmallIcon(R.drawable.ic_launcher_foreground);
-        this.setAutoCancel(true);
-        this.setSubText("Download progress");
         this.setPriority(NotificationManager.IMPORTANCE_DEFAULT);
+        this.setSubText("Download progress");
+        this.setDeleteIntent(pendingIntentClose);
     }
 
-    private void send() {
-        Notification notification = this.build();
-        notification.flags |= Notification.FLAG_AUTO_CANCEL;
-        notification.flags |= Notification.FLAG_NO_CLEAR;
+    public void error() {
+        this.setContentText("Download Fehler! Wiederholen?");
+        this.setProgress(0, 0, false);
+        this.setContentIntent(pendingIntentTouch);
+        this.setContentTitle(null);
 
-        notiManagerCompat.notify(0, notification);
+        notiManagerCompat.notify(2, this.build());
     }
 
-    public void destroy() {
-        notiManagerCompat.cancel(0);
-    }
-
-    public void setProgress(int current, String task, int inQueue, boolean indeterminate) {
-        this.setContentTitle("In queue: "+inQueue);
+    public void updateProgress(int current, String task, int inQueue, boolean indeterminate) {
         this.setProgress(3, current, indeterminate);
+        this.setContentTitle("In queue: "+inQueue);
+        this.setContentIntent(null);
         this.setContentText(task);
 
-        send();
+        notiManagerCompat.notify(2, this.build());
     }
 
     public void updateQueue(int inQueue) {
         this.setContentTitle("In queue: "+inQueue);
 
-        send();
+        notiManagerCompat.notify(2, this.build());
     }
 }
