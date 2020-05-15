@@ -153,7 +153,7 @@ public class BackgroundService extends Service {
                 videoTitle = videoTitle.replace("(Official Music Video)", "");
                 videoTitle = videoTitle.replace("(Official Video HD)", "");
                 videoTitle = videoTitle.replace("(OFFICIAL MUSIC VIDEO)", "");
-                imgURL = vMeta.getThumbUrl();
+                imgURL = vMeta.getMaxResImageUrl();
 
                 if(videoTitle.contains("–")) {
                     String[] splitTitle = videoTitle.split("–");
